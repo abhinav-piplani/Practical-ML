@@ -1,0 +1,73 @@
+---
+title: "Practical Machine Learning Assignment"
+author: "Abhinav Piplani"
+date: "29 June 2016"
+output: html_document
+---
+* Please note that from what I understood, we only have to submit the code and results for predicting the target values ("classe" variable) for the testing dataset, hence I have not included the code for the exploratory analysis and diagnostic checking.
+* Also my model took long time to build, hence I had saved the model using the "save" command and loaded the model using "load" command.The code for constructing the model is included as comments in the chunk(s)
+
+LOADING & UNDERSTANDING THE DATA
+
+```{r,warning=F}
+start<-Sys.time()
+library(caret)
+set.seed(1234)
+train_data=read.csv("pml-training.csv")
+train_data2<-train_data
+test_data=read.csv("pml-testing.csv")
+ncol(test_data)
+```
+
+DATA PREPROCESSING 
+
+* Removing all the columns in the test dataset which have all row values as NA as no information can be infered from these.
+* Now since the information (atleast some )is available only for the columns which were not removed, we would want to train our model on these features only. 
+* Hence we would only keep these columns in the training dataset as well to built a predictive model. 
+
+```{r,warning=F}
+test_data<-test_data[,colSums(is.na(test_data))!=nrow(test_data)]
+ncol(train_data)
+train_data<-train_data[,colnames(train_data)%in%colnames(test_data)]
+train_data<-cbind(classes=train_data2$classe,train_data)
+```
+
+* Further splitting the refined training dataset into a train set and a testing set.
+
+```{r,warning=F}
+split= createDataPartition(train_data$class, p = 3/4)[[1]]
+train_train=train_data[split,]
+train_test=train_data[-split,]
+```
+
+PREDICTIVE MODELLING
+
+* Building a random forest model using principal components (default threshold value) from the new training data created in the previous step and checking accuracy on this dataset itself and the new test dataset created in the previous step.
+* Also making predictions on the required test dataset, given for the assignment,
+
+```{r,warning=F,eval=T}
+#model1=train(classes~.,method="rf",preProcess="pca",data = train_train)
+#save(model1,file="model_20.Rdata")
+load("model_20.Rdata")
+confusionMatrix(train_test$classes,predict(model1,newdata=train_test))
+confusionMatrix(train_train$classes,predict(model1,data=train_train))
+pred1=predict(model1,newdata=test_data)
+```
+
+* Accuracies were too high (probably overfitting). Still duplicating the same approach and building the same model (random forest using pca at default threshold), but from the entire training dataset and making predictions on the required test dataset, given in the assignment.
+* Checking all the cases where both the models agree or disagree (Building confusion matrix of predictions from first model v/s predictions from second model).
+* For most of the cases, both the models give the same result, hence considering the predictions made by the second model as the final answer.
+
+```{r,warning=F,eval=T}
+#model2=train(classes~.,method="rf",preProcess="pca",data = train_data)
+#save(model2,file="final_model_20.Rdata")
+load("final_model_20.Rdata")
+pred2=predict(model2,newdata=test_data)
+confusionMatrix(pred1,pred2)
+pred2
+cat("Execution time in seconds :",(Sys.time()-start))
+```
+
+* I have already explained above, how I built my model. As far as cross validation is concerned, I had further split my original training data into a training & testing dataset (2K cross validation). This is because I think the data isn't big enough and using k=2, this cross validation would fetch me near about good results.
+* As I mentioned, the model was overfitting the testing dataset created for validation (Accuracy about 99%), my guessestimate is that it should give an accuracy of about 90% for the actual testing dataset (out of sample error about 10%).
+* I chose PCA as not all the features would be important and feature selection would consume a lot of time.I chose a bagging algorithm (random forest) as these have the ability to capture non linear trend in the data which I THINK generalized linear models may fail to capture sometimes.
